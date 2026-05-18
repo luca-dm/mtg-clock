@@ -835,11 +835,18 @@ html,body{
 <div id="menu" class="modal">
   <div class="mh"><span>MTG Clock</span>IMPOSTAZIONI</div>
 
+  <div class="sec-label">Punti vita iniziali</div>
+  <div class="presets">
+    <button class="pre pre-life sel" onclick="setLife(20,this)">20</button>
+    <button class="pre pre-life"     onclick="setLife(30,this)">30</button>
+    <button class="pre pre-life"     onclick="setLife(40,this)">40 ⚔</button>
+  </div>
+
   <div class="sec-label">Tempo partita</div>
   <div class="presets">
-    <button class="pre sel" onclick="setTime(1500,this)">25 min</button>
-    <button class="pre"     onclick="setTime(1800,this)">30 min</button>
-    <button class="pre"     onclick="setTime(3000,this)">50 min</button>
+    <button class="pre pre-time sel" onclick="setTime(1500,this)">25 min</button>
+    <button class="pre pre-time"     onclick="setTime(1800,this)">30 min</button>
+    <button class="pre pre-time"     onclick="setTime(3000,this)">50 min</button>
   </div>
 
   <div class="mdivider"></div>
@@ -900,6 +907,7 @@ let G={
   playerCount:0,
   ccw:[1,4,3,2],
   init:1500,
+  initLife:20,
   time:{1:1500,2:1500,3:1500,4:1500},
   life:{1:20,2:20,3:20,4:20},
   names:{1:'G1',2:'G2',3:'G3',4:'G4'},
@@ -1162,16 +1170,27 @@ function doPause(){
 
 // ── Time preset ──────────────────────────────
 function setTime(s,btn){
-  document.querySelectorAll('.pre').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('.pre-time').forEach(b=>b.classList.remove('sel'));
   btn.classList.add('sel');
   G.init=s;doReset(true);
+}
+
+// ── Life preset ──────────────────────────────
+function setLife(l,btn){
+  document.querySelectorAll('.pre-life').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  G.initLife=l;
+  if(G.active===0){
+    const n=l;G.life={1:n,2:n,3:n,4:n};
+    render();
+  }
 }
 
 // ── Reset ────────────────────────────────────
 function doReset(keepMenu){
   if(iv){clearInterval(iv);iv=null;}
   G.time={1:G.init,2:G.init,3:G.init,4:G.init};
-  G.life={1:20,2:20,3:20,4:20};
+  const l=G.initLife;G.life={1:l,2:l,3:l,4:l};
   G.cmdDmg={1:{2:0,3:0,4:0},2:{1:0,3:0,4:0},3:{1:0,2:0,4:0},4:{1:0,2:0,3:0}};
   G.active=0;G.running=false;G.paused=false;
   G.out={};G.winner=0;G.bMode=false;G.bNeeded=new Set();G.bAttacker=0;
