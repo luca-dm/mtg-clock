@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08050d">
+<title>MTG Clock</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  width:100%;height:100vh;height:100dvh;
+  overflow:hidden;
+  background:#08050d;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  font-family:Georgia,serif;
+}
+:root{
+  --text:#f6e7c1;
+  --muted:rgba(246,231,193,0.45);
+  --gold:#d4b366;
+  --gold-bright:#f1d990;
+  --amber:#f5b800;
+  --red:#ff3030;
+  --blue:#3db8ff;
+  --border:rgba(212,179,102,0.18);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+
+/* ── Animations (GPU-only: transform + opacity) ── */
+@keyframes glow-pulse{0%,100%{opacity:0.25}50%{opacity:0.5}}
+@keyframes rune-rotate{to{transform:rotate(360deg)}}
+@keyframes life-bump{0%{transform:scale(1)}35%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes blink{50%{opacity:0.12}}
+@keyframes float-up{0%{transform:translateY(0) scale(1);opacity:0}20%{opacity:1}100%{transform:translateY(-44px) scale(1.35);opacity:0}}
+
+/* ── Setup screen ── */
+#setup-screen{
+  position:fixed;inset:0;z-index:200;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 50%,#1c1422 0%,#08050d 70%,#03020a 100%);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:28px;
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bottom);
+}
+.ss-title{
+  font-family:Georgia,serif;
+  font-size:24px;font-weight:700;
+  color:var(--gold-bright);
+  letter-spacing:0.18em;text-transform:uppercase;
+  text-shadow:0 0 18px rgba(241,217,144,0.45);
+}
+.ss-sub{
+  font-size:9px;font-weight:600;letter-spacing:0.22em;
+  text-transform:uppercase;color:var(--muted);
+  font-family:Georgia,serif;
+  margin-top:-14px;
+}
+.ss-btns{display:flex;gap:16px;}
+.ss-btn{
+  width:88px;height:88px;border-radius:18px;
+  border:1px solid rgba(212,179,102,0.35);
+  background:linear-gradient(180deg,#2a1e10,#0e0a06);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:5px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.18),0 4px 12px rgba(0,0,0,0.5);
+  transition:transform 80ms;
+}
+.ss-btn:active{transform:scale(0.95);}
+.ss-num{
+  font-family:Georgia,serif;
+  font-size:34px;font-weight:700;color:var(--gold-bright);
+  line-height:1;
+  text-shadow:0 0 10px rgba(241,217,144,0.4);
+}
+.ss-lbl{
+  font-size:8px;font-weight:600;letter-spacing:0.16em;
+  text-transform:uppercase;color:var(--muted);
+  font-family:Georgia,serif;
+}
+
+/* ── Grid ── */
+#app{
+  width:100vw;height:100vh;height:100dvh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  position:relative;
+}
+#z4{grid-column:1;grid-row:1;}
+#z3{grid-column:2;grid-row:1;}
+#z1{grid-column:1;grid-row:2;}
+#z2{grid-column:2;grid-row:2;}
+
+/* ── 2-player layout ── */
+#app.players-2{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
+#app.players-2 #z2{grid-column:1;grid-row:1;}
+#app.players-2 #z1{grid-column:1;grid-row:2;}
+#app.players-2 #z3,#app.players-2 #z4{display:none;}
+#app.players-2 .zc{width:100vw;width:100dvw;height:50vh;height:50dvh;}
+#app.players-2 #z1 .zc{transform:translate(-50%,-50%) rotate(0deg);}
+#app.players-2 #z2 .zc{transform:translate(-50%,-50%) rotate(180deg);}
+
+/* ── 3-player layout ── */
+#app.players-3{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+#app.players-3 #z3{grid-column:1/span 2;grid-row:1;}
+#app.players-3 #z1{grid-column:1;grid-row:2;}
+#app.players-3 #z2{grid-column:2;grid-row:2;}
+#app.players-3 #z4{display:none;}
+#app.players-3 #z3 .zc{
+  width:100vw;width:100dvw;height:50vh;height:50dvh;
+  transform:translate(-50%,-50%) rotate(180deg);
+}
+
+/* ── Zone ── */
+.zone{
+  position:relative;
+  overflow:hidden;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* zone bg layers */
+.zone-bg{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse 90% 70% at 50% 50%,var(--c-mid) 0%,var(--c-deep) 65%,var(--c-edge) 100%);
+}
+.zone-glow{
+  position:absolute;inset:0;pointer-events:none;
+  opacity:0;
+  will-change:opacity;
+  background:radial-gradient(ellipse 80% 60% at 50% 50%,var(--c-glow,rgba(255,244,197,0.3)) 0%,transparent 55%);
+}
+.zone.active .zone-glow{animation:glow-pulse 1.9s ease-in-out infinite;}
+.zone-frame{
+  position:absolute;inset:5px;
+  border:1px solid var(--c-frame-out,rgba(125,106,58,0.8));
+  border-radius:12px;
+  pointer-events:none;z-index:3;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,0.4);
+}
+.zone.active .zone-frame{
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,0.4),0 0 0 2.5px var(--c-glow,rgba(255,244,197,0.6));
+}
+.zone.blocking .zone-frame{
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,0.4),0 0 0 2.5px rgba(61,184,255,0.8);
+}
+
+/* zone overlay for state tints */
+.zov{
+  position:absolute;inset:0;
+  pointer-events:none;opacity:0;
+  transition:opacity 0.18s,background 0.18s;
+  z-index:2;
+}
+.zone.active   .zov{background:rgba(230,160,0,0.12);opacity:1;}
+.zone.danger   .zov{background:rgba(220,30,30,0.2);opacity:1;}
+.zone.blocking .zov{background:rgba(50,170,255,0.14);opacity:1;}
+.zone.waiting  .zov{background:rgba(0,0,0,0.28);opacity:1;}
+.zone.out      .zov{background:rgba(0,0,0,0.58);opacity:1;}
+.zone.out{pointer-events:none;}
+
+/* zone corner ornaments */
+.zone-corner{
+  position:absolute;
+  width:22px;height:22px;
+  pointer-events:none;z-index:4;
+  color:var(--c-flourish,#f3e0a0);
+  opacity:0.75;
+}
+.zone-corner.tl{top:8px;left:8px;}
+.zone-corner.tr{top:8px;right:8px;transform:scaleX(-1);}
+.zone-corner.bl{bottom:8px;left:8px;transform:scaleY(-1);}
+.zone-corner.br{bottom:8px;right:8px;transform:scale(-1,-1);}
+
+/* ── Rotating inner container ── */
+.zc{
+  position:absolute;top:50%;left:50%;
+  width:50vh;width:50dvh;
+  height:50vw;height:50dvw;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:2px;z-index:5;
+  will-change:transform;
+}
+#z1 .zc,#z4 .zc{transform:translate(-50%,-50%) rotate(90deg);}
+#z2 .zc,#z3 .zc{transform:translate(-50%,-50%) rotate(-90deg);}
+
+/* ── Name ── */
+.p-name{
+  font-family:Georgia,serif;
+  font-size:min(11px,2.8dvw);font-weight:600;
+  letter-spacing:0.18em;text-transform:uppercase;
+  color:var(--c-flourish,#f3e0a0);
+  line-height:1;cursor:pointer;
+  padding:2px 6px;border-radius:4px;
+  text-shadow:0 0 8px var(--c-glow-faint,rgba(255,244,197,0.3));
+  transition:color 0.15s;
+  flex-shrink:1;min-height:0;
+}
+.p-name:active{background:rgba(255,255,255,0.08);}
+
+/* ── Life ── */
+.p-life{
+  font-family:Georgia,serif;
+  font-size:min(68px,18dvw);font-weight:700;
+  color:var(--c-glow,#fff4c5);
+  line-height:1;transition:color 0.15s;
+  min-width:2ch;text-align:center;
+  flex-shrink:1;min-height:0;
+  text-shadow:
+    0 0 20px var(--c-glow,rgba(255,244,197,0.6)),
+    0 0 4px var(--c-glow,rgba(255,244,197,0.9)),
+    0 2px 0 rgba(0,0,0,0.5);
+  font-variant-numeric:tabular-nums;
+}
+.zone.active  .p-life{color:var(--amber);}
+.zone.blocking .p-life{color:var(--blue);}
+.zone.danger  .p-life{color:var(--red);}
+.zone.out     .p-life{color:rgba(246,231,193,0.2);text-shadow:none;}
+.p-life.bump{animation:life-bump 380ms ease;}
+.p-life.low{color:#ff7e6b!important;text-shadow:0 0 18px rgba(255,80,60,0.6),0 0 4px rgba(255,100,80,0.9)!important;}
+
+/* ── Life buttons ── */
+.life-row{display:flex;align-items:center;gap:min(12px,3dvw);flex-shrink:1;min-height:0;}
+.lbtn{
+  width:min(48px,12dvw);height:min(48px,12dvw);
+  border-radius:50%;
+  border:1px solid var(--c-frame-out,rgba(125,106,58,0.8));
+  background:
+    radial-gradient(circle at 35% 30%,var(--c-flourish-faint,rgba(243,224,160,0.25)),transparent 60%),
+    linear-gradient(180deg,var(--c-mid,#3d3320),var(--c-edge,#0a0805));
+  color:var(--c-flourish,#f3e0a0);
+  font-family:Georgia,serif;
+  font-size:min(26px,6.5dvw);font-weight:700;
+  line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;user-select:none;
+  box-shadow:
+    inset 0 1px 0 var(--c-flourish-faint,rgba(243,224,160,0.25)),
+    inset 0 -2px 4px rgba(0,0,0,0.5),
+    0 2px 4px rgba(0,0,0,0.45);
+  text-shadow:0 0 6px var(--c-glow-faint,rgba(255,244,197,0.4));
+  transition:transform 90ms;
+  overflow:hidden;
+}
+.lbtn:active{transform:scale(0.92);}
+
+/* ── Timer ── */
+.p-timer{
+  font-family:Georgia,serif;
+  font-size:min(14px,3.5dvw);font-weight:600;
+  letter-spacing:0.08em;
+  color:var(--c-flourish,#f3e0a0);
+  background:linear-gradient(180deg,rgba(0,0,0,0.4),rgba(0,0,0,0.6));
+  padding:min(4px,1dvw) min(10px,2.5dvw);
+  border-radius:10px;
+  border:1px solid var(--c-flourish-border,rgba(243,224,160,0.3));
+  text-shadow:0 0 6px var(--c-glow-faint,rgba(255,244,197,0.4));
+  box-shadow:inset 0 0 10px var(--c-glow-faint,rgba(255,244,197,0.06));
+  transition:color 0.15s,border-color 0.15s;
+  flex-shrink:1;min-height:0;
+  font-variant-numeric:tabular-nums;
+}
+.zone.active  .p-timer{color:var(--amber);border-color:rgba(245,184,0,0.4);}
+.zone.blocking .p-timer{color:var(--blue);border-color:rgba(61,184,255,0.4);}
+.zone.danger  .p-timer{color:var(--red);border-color:rgba(255,48,48,0.5);animation:blink 0.9s step-end infinite;}
+.zone.out     .p-timer{color:rgba(246,231,193,0.18);border-color:transparent;}
+@keyframes blink{50%{opacity:0.12}}
+
+/* ── Pip ── */
+.pip{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--amber);opacity:0;transition:opacity 0.2s;
+}
+.zone.active   .pip{opacity:1;}
+.zone.blocking .pip{background:var(--blue);opacity:1;}
+
+/* ── Win stars ── */
+.p-wins{
+  font-family:Georgia,serif;
+  font-size:min(9px,2.3dvw);
+  color:rgba(212,179,102,0.6);
+  letter-spacing:2px;min-height:1em;line-height:1;
+}
+
+/* ── Blocker btn ── */
+.blocker-btn{
+  font-family:Georgia,serif;
+  font-size:min(8px,2dvw);letter-spacing:0.14em;
+  padding:2px min(8px,2dvw);
+  border-radius:6px;
+  border:1px solid rgba(212,179,102,0.3);
+  background:linear-gradient(180deg,rgba(42,30,16,0.7),rgba(14,10,6,0.7));
+  color:rgba(243,224,160,0.55);
+  cursor:pointer;font-family:Georgia,serif;
+  display:none;white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+  text-transform:uppercase;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
+}
+.zone.active .blocker-btn{display:block;}
+.zone.waiting .blocker-btn{display:none;}
+
+/* ── Banners ── */
+.out-banner,.shield-banner{
+  position:absolute;inset:0;
+  display:none;align-items:center;justify-content:center;
+  font-family:Georgia,serif;
+  font-size:min(11px,2.8vw);font-weight:700;
+  letter-spacing:0.22em;text-transform:uppercase;
+  pointer-events:none;z-index:6;
+}
+.out-banner{
+  color:rgba(217,196,152,0.75);
+  text-shadow:0 0 12px rgba(0,0,0,0.9),0 0 4px rgba(0,0,0,1);
+}
+.shield-banner{
+  color:rgba(61,184,255,0.75);
+  align-items:flex-end;
+  padding-bottom:min(8px,2vw);
+}
+.zone.out      .out-banner{display:flex;}
+.zone.blocking .shield-banner{display:flex;}
+
+/* ── Winner banner ── */
+.winner-banner{
+  position:absolute;inset:0;
+  display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:4px;
+  font-family:Georgia,serif;
+  pointer-events:none;z-index:7;
+}
+.winner-banner span{
+  font-size:min(13px,3.3vw);font-weight:700;
+  letter-spacing:0.22em;text-transform:uppercase;
+  color:rgba(241,217,144,0.9);
+  text-shadow:0 0 14px rgba(241,217,144,0.5);
+  border-top:1px solid rgba(241,217,144,0.4);
+  border-bottom:1px solid rgba(241,217,144,0.4);
+  padding:4px 10px;
+  background:rgba(8,4,4,0.5);
+}
+.zone.winner .winner-banner{display:flex;}
+.zone.winner .zov{background:rgba(212,179,102,0.1);opacity:1;}
+.zone.winner .zone-frame{box-shadow:inset 0 0 0 1px rgba(0,0,0,0.4),0 0 0 2.5px rgba(212,179,102,0.75);}
+
+/* ── Center medallion (gear) ── */
+#gear{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(54px,13.5vw);height:min(54px,13.5vw);
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#4a3a1a 0%,#1a1208 60%,#08050a 100%);
+  border:1px solid #6a521e;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:20;
+  box-shadow:
+    inset 0 1px 0 rgba(241,217,144,0.3),
+    0 0 0 4px rgba(8,4,4,0.7),
+    0 0 0 5px rgba(212,179,102,0.18);
+  color:#f1d990;
+  font-size:min(22px,5.5vw);
+  user-select:none;-webkit-tap-highlight-color:transparent;
+}
+#gear::before{
+  content:'';
+  position:absolute;inset:4px;border-radius:50%;
+  border:1px dashed rgba(241,217,144,0.3);
+  animation:rune-rotate 24s linear infinite;
+  pointer-events:none;
+}
+#gear:active{transform:translate(-50%,-50%) scale(0.93);}
+
+/* ── Dim ── */
+#dim{
+  display:none;position:absolute;inset:0;
+  background:rgba(2,1,5,0.82);z-index:30;
+}
+#dim.on{display:block;}
+
+/* ── Menu ── */
+#menu{
+  display:none;position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 50% 0%,#2a1e34 0%,#0c0810 80%);
+  border:1px solid rgba(212,179,102,0.35);
+  border-radius:20px;padding:20px 18px 18px;
+  z-index:40;width:min(284px,88vw);
+  flex-direction:column;gap:9px;
+  max-height:88vh;max-height:88dvh;overflow-y:auto;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.14),inset 0 0 30px rgba(0,0,0,0.7),0 12px 40px rgba(0,0,0,0.6);
+}
+#menu.on{display:flex;}
+
+.mh{
+  text-align:center;font-size:9px;font-weight:600;
+  letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--muted);font-family:Georgia,serif;
+}
+.mh span{
+  display:block;font-size:16px;font-weight:700;
+  letter-spacing:0.14em;color:var(--gold-bright);
+  margin-bottom:3px;text-transform:uppercase;
+  font-family:Georgia,serif;
+  text-shadow:0 0 8px rgba(241,217,144,0.35);
+}
+.sec-label{
+  font-size:9px;font-weight:600;letter-spacing:0.18em;
+  text-transform:uppercase;color:var(--muted);
+  font-family:Georgia,serif;
+}
+
+.presets{display:flex;gap:5px;}
+.pre{
+  flex:1;height:36px;
+  border:1px solid rgba(212,179,102,0.2);border-radius:9px;
+  background:rgba(42,30,16,0.4);color:rgba(241,217,144,0.5);
+  font-size:11px;cursor:pointer;font-family:Georgia,serif;
+  letter-spacing:0.08em;
+}
+.pre.sel{
+  background:linear-gradient(180deg,#3a2818,#1a1208);
+  border-color:rgba(212,179,102,0.55);color:var(--gold-bright);
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.2);
+}
+.pre:active{opacity:0.6;}
+
+.mbtn{
+  height:42px;
+  border:1px solid rgba(212,179,102,0.22);border-radius:10px;
+  background:linear-gradient(180deg,rgba(42,30,16,0.5),rgba(14,10,6,0.5));
+  color:var(--text);
+  font-size:12px;letter-spacing:0.1em;
+  cursor:pointer;font-family:Georgia,serif;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  text-transform:uppercase;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
+}
+.mbtn:active{opacity:0.6;}
+.mbtn.danger{color:#ff8866;border-color:rgba(255,107,58,0.35);}
+.mbtn.dim{color:var(--muted);border-color:rgba(212,179,102,0.12);}
+
+.mdivider{height:0.5px;background:rgba(212,179,102,0.14);}
+
+.prow{display:flex;align-items:center;gap:7px;padding:2px 0;}
+.prow-num{
+  font-size:10px;font-weight:600;color:var(--gold-bright);
+  font-family:Georgia,serif;min-width:14px;letter-spacing:0.08em;
+}
+.prow-name{
+  font-size:10px;color:var(--muted);font-family:Georgia,serif;
+  flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;padding:2px 4px;border-radius:4px;letter-spacing:0.1em;
+}
+.prow-name:active{background:rgba(255,255,255,0.06);}
+.cdots{display:flex;gap:5px;flex-shrink:0;}
+.cdot{
+  width:20px;height:20px;border-radius:50%;cursor:pointer;
+  border:1.5px solid rgba(0,0,0,0.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),0 0 0 1px rgba(212,179,102,0.2);
+  transition:box-shadow 0.1s,transform 0.1s;
+}
+.cdot.sel{box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),0 0 0 2.5px var(--gold-bright);transform:scale(1.18);}
+.cdot:active{opacity:0.7;}
+
+.score-row{
+  display:flex;align-items:center;gap:0;
+  background:rgba(0,0,0,0.35);
+  border:1px solid rgba(212,179,102,0.18);
+  border-radius:10px;overflow:hidden;
+}
+.score-cell{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:7px 4px;border-right:0.5px solid rgba(212,179,102,0.14);
+}
+.score-cell:last-child{border-right:none;}
+.sc-name{
+  font-size:8px;color:var(--muted);
+  font-family:Georgia,serif;letter-spacing:0.12em;
+  text-transform:uppercase;
+}
+.sc-val{
+  font-size:18px;font-weight:700;color:var(--gold-bright);
+  font-family:Georgia,serif;line-height:1;
+  text-shadow:0 0 8px rgba(241,217,144,0.4);
+}
+
+/* ── Modals ── */
+.modal{
+  display:none;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 50% 0%,#2a1e34 0%,#0c0810 80%);
+  border:1px solid rgba(212,179,102,0.38);
+  border-radius:18px;padding:20px 18px;
+  z-index:50;width:min(268px,86vw);
+  flex-direction:column;gap:11px;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.14),inset 0 0 24px rgba(0,0,0,0.7),0 12px 40px rgba(0,0,0,0.6);
+}
+.modal.on{display:flex;}
+.modal-title{
+  font-size:13px;font-weight:700;color:var(--gold-bright);
+  font-family:Georgia,serif;text-align:center;
+  letter-spacing:0.14em;text-transform:uppercase;
+  text-shadow:0 0 8px rgba(241,217,144,0.3);
+}
+.modal-sub{
+  font-size:9px;color:var(--muted);
+  font-family:Georgia,serif;text-align:center;margin-top:-5px;
+  letter-spacing:0.14em;text-transform:uppercase;
+}
+.modal-actions{display:flex;gap:8px;}
+.modal-actions button{
+  flex:1;height:40px;border-radius:10px;font-size:11px;
+  cursor:pointer;font-family:Georgia,serif;
+  letter-spacing:0.1em;text-transform:uppercase;
+}
+.btn-ok{
+  background:linear-gradient(180deg,#3a2818,#1a1208);
+  border:1px solid rgba(212,179,102,0.5);color:var(--gold-bright);
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.2);
+}
+.btn-blue{
+  background:linear-gradient(180deg,#0d2238,#051018);
+  border:1px solid rgba(61,184,255,0.4);color:var(--blue);
+}
+.btn-cancel{
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(212,179,102,0.18);color:var(--muted);
+}
+
+.bm-list{display:flex;flex-direction:column;gap:7px;}
+.bm-p{
+  height:42px;border:1px solid rgba(212,179,102,0.22);border-radius:10px;
+  background:rgba(42,30,16,0.4);color:var(--text);
+  font-size:12px;letter-spacing:0.12em;text-transform:uppercase;
+  cursor:pointer;font-family:Georgia,serif;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
+}
+.bm-p.sel{
+  background:linear-gradient(180deg,#0d2238,#051018);
+  border-color:rgba(61,184,255,0.5);color:var(--blue);
+}
+.bm-p:active{opacity:0.7;}
+
+#name-input{
+  height:44px;background:rgba(0,0,0,0.35);
+  border:1px solid rgba(212,179,102,0.3);border-radius:10px;
+  color:var(--text);font-size:16px;
+  font-family:Georgia,serif;letter-spacing:0.12em;text-transform:uppercase;
+  text-align:center;padding:0 12px;outline:none;
+}
+#name-input:focus{border-color:rgba(212,179,102,0.6);}
+
+/* ── Hint ── */
+#hint{
+  position:absolute;inset:0;
+  display:none;align-items:center;justify-content:center;
+  pointer-events:none;z-index:10;
+}
+#hint-inner{
+  background:rgba(8,4,12,0.94);
+  border:1px solid rgba(212,179,102,0.3);
+  border-radius:14px;padding:16px 24px;
+  text-align:center;max-width:min(220px,66vw);
+  box-shadow:0 0 24px rgba(0,0,0,0.6);
+}
+#hint-inner strong{
+  display:block;
+  font-family:Georgia,serif;
+  font-size:13px;font-weight:700;
+  color:var(--gold-bright);margin-bottom:8px;
+  letter-spacing:0.14em;
+  text-shadow:0 0 8px rgba(241,217,144,0.35);
+}
+#hint-inner p{
+  font-size:11px;color:var(--muted);
+  line-height:1.65;font-family:Georgia,serif;
+  letter-spacing:0.06em;
+}
+
+/* ── Commander damage panel ── */
+#cdmg-dim{
+  display:none;position:fixed;inset:0;
+  background:rgba(2,1,5,0.84);z-index:190;
+}
+#cdmg-dim.on{display:block;}
+.cdmg-panel{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  display:none;flex-direction:column;gap:14px;
+  background:radial-gradient(circle at 50% 0%,#2a1e34 0%,#0c0810 85%);
+  border:1px solid rgba(212,179,102,0.42);
+  border-radius:20px;padding:22px 26px;
+  z-index:200;pointer-events:auto;
+  width:min(320px,90vw);
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.14),0 16px 48px rgba(0,0,0,0.7);
+}
+.cdmg-panel.on{display:flex;}
+.cdmg-hdr{
+  font-family:Georgia,serif;
+  font-size:11px;font-weight:700;letter-spacing:0.22em;
+  text-transform:uppercase;color:var(--muted);
+  text-align:center;
+}
+.cdmg-row{display:flex;align-items:center;gap:14px;}
+.cdmg-name{
+  font-family:Georgia,serif;
+  font-size:15px;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--text);
+  flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cdmg-val{
+  font-family:Georgia,serif;
+  font-size:32px;font-weight:700;
+  color:var(--red);
+  min-width:2ch;text-align:center;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 12px rgba(255,48,48,0.5);
+}
+.cdmg-val.warn{color:#ff8c00;text-shadow:0 0 12px rgba(255,140,0,0.5);}
+.cdmg-btn{
+  width:52px;height:52px;
+  border-radius:50%;
+  border:1px solid rgba(212,179,102,0.35);
+  background:linear-gradient(180deg,#2a1e10,#0e0a06);
+  color:var(--gold-bright);font-size:28px;font-weight:700;
+  font-family:Georgia,serif;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.2),0 2px 4px rgba(0,0,0,0.45);
+  transition:transform 90ms;
+}
+.cdmg-btn:active{transform:scale(0.92);}
+.cdmg-close{
+  width:100%;padding:10px 0;margin-top:4px;
+  border-radius:10px;
+  border:1px solid rgba(212,179,102,0.28);
+  background:linear-gradient(180deg,rgba(42,30,16,0.5),rgba(14,10,6,0.5));
+  color:var(--muted);font-size:12px;letter-spacing:0.14em;text-transform:uppercase;
+  cursor:pointer;font-family:Georgia,serif;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
+}
+.cdmg-close:active{background:rgba(255,255,255,0.08);color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- Setup screen -->
+<div id="setup-screen">
+  <div class="ss-title">MTG Clock</div>
+  <div class="ss-sub">Quanti giocatori?</div>
+  <div class="ss-btns">
+    <button class="ss-btn" onclick="choosePlayerCount(2)">
+      <span class="ss-num">2</span>
+      <span class="ss-lbl">Giocatori</span>
+    </button>
+    <button class="ss-btn" onclick="choosePlayerCount(3)">
+      <span class="ss-num">3</span>
+      <span class="ss-lbl">Giocatori</span>
+    </button>
+    <button class="ss-btn" onclick="choosePlayerCount(4)">
+      <span class="ss-num">4</span>
+      <span class="ss-lbl">Giocatori</span>
+    </button>
+  </div>
+</div>
+
+<div id="app">
+
+<!-- Corner SVG template (reused per zone) -->
+<!-- G4: top-left +90° -->
+<div class="zone" id="z4" onclick="tap(4)">
+  <div class="zone-bg"></div>
+  <div class="zone-glow"></div>
+  <div class="zone-frame"></div>
+  <div class="zov"></div>
+  <svg class="zone-corner tl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner tr" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner bl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner br" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <div class="zc">
+    <div class="p-name" id="name4" onclick="openNameEdit(4,event)">G4</div>
+    <div class="p-timer" id="tm4">25:00</div>
+    <div class="p-life" id="lf4">20</div>
+    <div class="life-row">
+      <button class="lbtn" data-p="4" data-d="-1">−</button>
+      <button class="lbtn" data-p="4" data-d="1">+</button>
+    </div>
+    <div class="pip"></div>
+    <div class="p-wins" id="wn4"></div>
+    <button class="blocker-btn" onclick="openBlockers(4,event)">⚔ Bloccanti</button>
+  </div>
+  <div class="cdmg-panel" id="cdmg4"></div>
+  <div class="out-banner">ELIMINATO</div>
+  <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
+  <div class="winner-banner"><span>🏆 VINCITORE</span></div>
+</div>
+
+<!-- G3: top-right -90° -->
+<div class="zone" id="z3" onclick="tap(3)">
+  <div class="zone-bg"></div>
+  <div class="zone-glow"></div>
+  <div class="zone-frame"></div>
+  <div class="zov"></div>
+  <svg class="zone-corner tl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner tr" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner bl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner br" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <div class="zc">
+    <div class="p-name" id="name3" onclick="openNameEdit(3,event)">G3</div>
+    <div class="p-timer" id="tm3">25:00</div>
+    <div class="p-life" id="lf3">20</div>
+    <div class="life-row">
+      <button class="lbtn" data-p="3" data-d="-1">−</button>
+      <button class="lbtn" data-p="3" data-d="1">+</button>
+    </div>
+    <div class="pip"></div>
+    <div class="p-wins" id="wn3"></div>
+    <button class="blocker-btn" onclick="openBlockers(3,event)">⚔ Bloccanti</button>
+  </div>
+  <div class="cdmg-panel" id="cdmg3"></div>
+  <div class="out-banner">ELIMINATO</div>
+  <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
+  <div class="winner-banner"><span>🏆 VINCITORE</span></div>
+</div>
+
+<!-- G1: bottom-left +90° -->
+<div class="zone" id="z1" onclick="tap(1)">
+  <div class="zone-bg"></div>
+  <div class="zone-glow"></div>
+  <div class="zone-frame"></div>
+  <div class="zov"></div>
+  <svg class="zone-corner tl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner tr" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner bl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner br" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <div class="zc">
+    <div class="p-name" id="name1" onclick="openNameEdit(1,event)">G1</div>
+    <div class="p-timer" id="tm1">25:00</div>
+    <div class="p-life" id="lf1">20</div>
+    <div class="life-row">
+      <button class="lbtn" data-p="1" data-d="-1">−</button>
+      <button class="lbtn" data-p="1" data-d="1">+</button>
+    </div>
+    <div class="pip"></div>
+    <div class="p-wins" id="wn1"></div>
+    <button class="blocker-btn" onclick="openBlockers(1,event)">⚔ Bloccanti</button>
+  </div>
+  <div class="cdmg-panel" id="cdmg1"></div>
+  <div class="out-banner">ELIMINATO</div>
+  <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
+  <div class="winner-banner"><span>🏆 VINCITORE</span></div>
+</div>
+
+<!-- G2: bottom-right -90° -->
+<div class="zone" id="z2" onclick="tap(2)">
+  <div class="zone-bg"></div>
+  <div class="zone-glow"></div>
+  <div class="zone-frame"></div>
+  <div class="zov"></div>
+  <svg class="zone-corner tl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner tr" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner bl" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <svg class="zone-corner br" viewBox="0 0 22 22" fill="none"><path d="M2 2L2 11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 2L11 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M2 7Q7 7 7 2" stroke="currentColor" stroke-width="0.9" fill="none"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="0.9" fill="currentColor" opacity="0.6"/></svg>
+  <div class="zc">
+    <div class="p-name" id="name2" onclick="openNameEdit(2,event)">G2</div>
+    <div class="p-timer" id="tm2">25:00</div>
+    <div class="p-life" id="lf2">20</div>
+    <div class="life-row">
+      <button class="lbtn" data-p="2" data-d="-1">−</button>
+      <button class="lbtn" data-p="2" data-d="1">+</button>
+    </div>
+    <div class="pip"></div>
+    <div class="p-wins" id="wn2"></div>
+    <button class="blocker-btn" onclick="openBlockers(2,event)">⚔ Bloccanti</button>
+  </div>
+  <div class="cdmg-panel" id="cdmg2"></div>
+  <div class="out-banner">ELIMINATO</div>
+  <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
+  <div class="winner-banner"><span>🏆 VINCITORE</span></div>
+</div>
+
+<!-- Hint -->
+<div id="hint">
+  <div id="hint-inner">
+    <strong>⚔ MTG Clock</strong>
+    <p id="hint-text">Tocca la tua zona per iniziare.</p>
+  </div>
+</div>
+
+<!-- Dim -->
+<div id="dim" onclick="closeDim()"></div>
+<div id="cdmg-dim"></div>
+
+<!-- Gear -->
+<div id="gear" onclick="openMenu()">⚙</div>
+
+<!-- MENU -->
+<div id="menu" class="modal">
+  <div class="mh"><span>MTG Clock</span>IMPOSTAZIONI</div>
+
+  <div class="sec-label">Tempo partita</div>
+  <div class="presets">
+    <button class="pre sel" onclick="setTime(1500,this)">25 min</button>
+    <button class="pre"     onclick="setTime(1800,this)">30 min</button>
+    <button class="pre"     onclick="setTime(3000,this)">50 min</button>
+  </div>
+
+  <div class="mdivider"></div>
+  <div class="sec-label">Punteggio partite</div>
+  <div class="score-row" id="score-row"></div>
+  <button class="mbtn dim" style="height:34px;font-size:11px;" onclick="resetScores()">↺ Azzera punteggi</button>
+
+  <div class="mdivider"></div>
+  <div class="sec-label">Giocatori</div>
+  <div id="player-rows"></div>
+
+  <div class="mdivider"></div>
+  <button class="mbtn" id="pbtn" onclick="doPause()">
+    <span id="pico">⏸</span><span id="ptxt">Pausa</span>
+  </button>
+  <button class="mbtn danger" onclick="doReset()">↺ &nbsp;Nuova partita</button>
+  <button class="mbtn dim"    onclick="showSetup()">◫ &nbsp;Cambia giocatori</button>
+  <button class="mbtn dim"    onclick="closeDim()">✕ &nbsp;Chiudi</button>
+</div>
+
+<!-- BLOCKER MODAL -->
+<div id="bmodal" class="modal">
+  <div class="modal-title">⚔ Fase Bloccanti</div>
+  <div class="modal-sub">Chi deve dichiarare i bloccanti?</div>
+  <div class="bm-list" id="bm-list"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="cancelBlockers()">Annulla</button>
+    <button class="btn-blue"   onclick="confirmBlockers()">Conferma</button>
+  </div>
+</div>
+
+<!-- NAME MODAL -->
+<div id="nmodal" class="modal">
+  <div class="modal-title">✏ Nome giocatore</div>
+  <input type="text" id="name-input" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false">
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="cancelName()">Annulla</button>
+    <button class="btn-ok"     onclick="confirmName()">OK</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+<script>
+/* ── Mana theme palette (maps PAL index → CSS vars) ── */
+const PAL=[
+  '#111110','#0b1525','#0b1e10','#160b28',
+  '#280b0b','#1e1400','#0b1e1e','#1c1818'
+];
+const PAL_THEMES=[
+  {mid:'#3d3320',deep:'#1a1410',edge:'#0a0805',glow:'#fff4c5',flourish:'#f3e0a0',frameOut:'#7d6a3a',frameIn:'#1a1410',glowFaint:'rgba(255,244,197,0.1)',flourishFaint:'rgba(243,224,160,0.2)',flourishBorder:'rgba(243,224,160,0.28)'},
+  {mid:'#163048',deep:'#0a1828',edge:'#040a16',glow:'#9ed2ff',flourish:'#7ab8e8',frameOut:'#3a6d96',frameIn:'#0a1828',glowFaint:'rgba(158,210,255,0.1)',flourishFaint:'rgba(122,184,232,0.2)',flourishBorder:'rgba(122,184,232,0.28)'},
+  {mid:'#16321c',deep:'#0a1810',edge:'#040a06',glow:'#9eecaa',flourish:'#76b487',frameOut:'#3d6840',frameIn:'#0a1810',glowFaint:'rgba(158,236,170,0.1)',flourishFaint:'rgba(118,180,135,0.2)',flourishBorder:'rgba(118,180,135,0.28)'},
+  {mid:'#2a1538',deep:'#100614',edge:'#050208',glow:'#d9a3ff',flourish:'#b388c8',frameOut:'#5a3c70',frameIn:'#100614',glowFaint:'rgba(217,163,255,0.1)',flourishFaint:'rgba(179,136,200,0.2)',flourishBorder:'rgba(179,136,200,0.28)'},
+  {mid:'#3e160e',deep:'#1d0a07',edge:'#0a0403',glow:'#ffb380',flourish:'#e88656',frameOut:'#8a4626',frameIn:'#1d0a07',glowFaint:'rgba(255,179,128,0.1)',flourishFaint:'rgba(232,134,86,0.2)',flourishBorder:'rgba(232,134,86,0.28)'},
+  {mid:'#3d3320',deep:'#1a1410',edge:'#0a0805',glow:'#fff4c5',flourish:'#f3e0a0',frameOut:'#7d6a3a',frameIn:'#1a1410',glowFaint:'rgba(255,244,197,0.1)',flourishFaint:'rgba(243,224,160,0.2)',flourishBorder:'rgba(243,224,160,0.28)'},
+  {mid:'#163048',deep:'#0a1828',edge:'#040a16',glow:'#9ed2ff',flourish:'#7ab8e8',frameOut:'#3a6d96',frameIn:'#0a1828',glowFaint:'rgba(158,210,255,0.1)',flourishFaint:'rgba(122,184,232,0.2)',flourishBorder:'rgba(122,184,232,0.28)'},
+  {mid:'#2a1538',deep:'#100614',edge:'#050208',glow:'#d9a3ff',flourish:'#b388c8',frameOut:'#5a3c70',frameIn:'#100614',glowFaint:'rgba(217,163,255,0.1)',flourishFaint:'rgba(179,136,200,0.2)',flourishBorder:'rgba(179,136,200,0.28)'},
+];
+
+let G={
+  playerCount:0,
+  ccw:[1,4,3,2],
+  init:1500,
+  time:{1:1500,2:1500,3:1500,4:1500},
+  life:{1:20,2:20,3:20,4:20},
+  names:{1:'G1',2:'G2',3:'G3',4:'G4'},
+  col:{1:0,2:0,3:0,4:0},
+  wins:{1:0,2:0,3:0,4:0},
+  cmdDmg:{1:{2:0,3:0,4:0},2:{1:0,3:0,4:0},3:{1:0,2:0,4:0},4:{1:0,2:0,3:0}},
+  active:0,running:false,paused:false,
+  out:{},winner:0,
+  bMode:false,bNeeded:new Set(),bAttacker:0
+};
+let iv=null,bmSel=new Set(),editP=0,_cdmgOpen=0;
+
+const fmt=s=>{s=Math.max(0,Math.round(s));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
+
+function setCCW(n){
+  if(n===2)G.ccw=[1,2];
+  else if(n===3)G.ccw=[1,3,2];
+  else G.ccw=[1,4,3,2];
+}
+
+function nextAlive(cur){
+  const i=G.ccw.indexOf(cur);
+  for(let t=1;t<=G.ccw.length;t++){const n=G.ccw[(i+t)%G.ccw.length];if(!G.out[n])return n;}
+  return null;
+}
+
+function nextBlocker(from){
+  const i=G.ccw.indexOf(from);
+  for(let t=1;t<=G.ccw.length;t++){const q=G.ccw[(i+t)%G.ccw.length];if(!G.out[q]&&G.bNeeded.has(q))return q;}
+  return null;
+}
+
+// ── Setup ────────────────────────────────────
+function showSetup(){
+  closeDim();
+  if(iv){clearInterval(iv);iv=null;}
+  G.active=0;G.running=false;G.paused=false;
+  document.getElementById('hint').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+}
+
+function choosePlayerCount(n){
+  G.playerCount=n;
+  setCCW(n);
+  G.wins={1:0,2:0,3:0,4:0};
+  document.getElementById('app').className='players-'+n;
+  const hints={
+    2:'G1 in basso, G2 in alto.<br>Tocca la tua zona per iniziare.',
+    3:'G1 a sinistra, G2 a destra,<br>G3 in alto.<br>Tocca la tua zona per iniziare.',
+    4:'G1, G4 siedono a sinistra.<br>G2, G3 a destra.<br>Tocca la tua zona per iniziare.'
+  };
+  document.getElementById('hint-text').innerHTML=hints[n];
+  document.getElementById('setup-screen').style.display='none';
+  doReset();
+}
+
+// ── Elimination & win check ──────────────────
+function eliminate(p){
+  if(G.out[p])return;
+  closeCdmg();
+  G.out[p]=true;
+  G.bNeeded.delete(p);
+  const alive=G.ccw.filter(q=>!G.out[q]);
+  if(alive.length===1){
+    G.winner=alive[0];G.wins[alive[0]]++;
+    G.bMode=false;G.bAttacker=0;G.bNeeded=new Set();
+    G.running=false;if(iv){clearInterval(iv);iv=null;}
+    render();return;
+  }
+  if(G.bMode){
+    if(G.bNeeded.size===0||G.bAttacker===p){
+      G.bMode=false;
+      G.active=(G.bAttacker&&!G.out[G.bAttacker])?G.bAttacker:nextAlive(p);
+      G.bAttacker=0;G.bNeeded=new Set();
+    } else if(G.active===p){
+      const nextB=nextBlocker(p);
+      if(nextB)G.active=nextB;
+    }
+    return;
+  }
+  if(G.active===p){
+    const next=nextAlive(p);
+    if(next){G.active=next;}
+    else{G.running=false;if(iv){clearInterval(iv);iv=null;}}
+  }
+}
+
+// ── Render ───────────────────────────────────
+function zClass(p){
+  if(G.winner===p)return'zone winner';
+  if(G.out[p])return'zone out';
+  if(G.bMode){
+    if(G.active===p){const id=G.time[p]<=60;return'zone active'+(id?' danger':'');}
+    if(G.bNeeded.has(p))return'zone blocking';
+    if(G.bAttacker===p)return'zone waiting';
+    return'zone';
+  }
+  const ia=G.active===p,id=G.time[p]<=60;
+  if(ia)return'zone active'+(id?' danger':'');
+  if(id&&G.active!==0)return'zone danger';
+  return'zone';
+}
+
+function applyTheme(z,col){
+  const th=PAL_THEMES[col];
+  z.style.setProperty('--c-mid',th.mid);
+  z.style.setProperty('--c-deep',th.deep);
+  z.style.setProperty('--c-edge',th.edge);
+  z.style.setProperty('--c-glow',th.glow);
+  z.style.setProperty('--c-flourish',th.flourish);
+  z.style.setProperty('--c-frame-out',th.frameOut);
+  z.style.setProperty('--c-frame-in',th.frameIn);
+  z.style.setProperty('--c-glow-faint',th.glowFaint);
+  z.style.setProperty('--c-flourish-faint',th.flourishFaint);
+  z.style.setProperty('--c-flourish-border',th.flourishBorder);
+}
+
+function render(){
+  G.ccw.forEach(p=>{
+    const z=document.getElementById('z'+p);
+    z.className=zClass(p);
+    z.style.background=PAL[G.col[p]];
+    applyTheme(z,G.col[p]);
+    document.getElementById('lf'+p).textContent=G.life[p];
+    document.getElementById('tm'+p).textContent=fmt(G.time[p]);
+    document.getElementById('name'+p).textContent=G.names[p];
+    const w=G.wins[p];
+    document.getElementById('wn'+p).textContent=w>0?'★'.repeat(Math.min(w,6)):'';
+  });
+  if(document.getElementById('menu').classList.contains('on')){
+    buildScoreRow();buildPlayerRows();
+    const p=G.paused;
+    document.getElementById('pico').textContent=p?'▶':'⏸';
+    document.getElementById('ptxt').textContent=p?'Riprendi':'Pausa';
+    document.getElementById('pbtn').style.display=G.active===0?'none':'flex';
+  }
+}
+
+function buildScoreRow(){
+  const c=document.getElementById('score-row');
+  c.innerHTML='';
+  G.ccw.forEach(p=>{
+    const cell=document.createElement('div');
+    cell.className='score-cell';
+    cell.innerHTML=`<div class="sc-name">${G.names[p]}</div><div class="sc-val">${G.wins[p]}</div>`;
+    c.appendChild(cell);
+  });
+}
+
+function buildPlayerRows(){
+  const c=document.getElementById('player-rows');
+  c.innerHTML='';
+  G.ccw.forEach(p=>{
+    const row=document.createElement('div');row.className='prow';
+    const num=document.createElement('div');num.className='prow-num';num.textContent=p;
+    const nm=document.createElement('div');nm.className='prow-name';
+    nm.textContent=G.names[p]+' ✏';
+    nm.onclick=()=>{closeDim();openNameEdit(p,null);};
+    const dots=document.createElement('div');dots.className='cdots';
+    PAL.forEach((col,i)=>{
+      const d=document.createElement('div');
+      d.className='cdot'+(G.col[p]===i?' sel':'');
+      d.style.background=`radial-gradient(circle at 35% 30%,${PAL_THEMES[i].glow} 0%,${PAL_THEMES[i].mid} 55%,${PAL_THEMES[i].edge} 100%)`;
+      d.onclick=()=>{G.col[p]=i;render();};
+      dots.appendChild(d);
+    });
+    row.appendChild(num);row.appendChild(nm);row.appendChild(dots);
+    c.appendChild(row);
+  });
+}
+
+// ── Tick ─────────────────────────────────────
+function startTick(){
+  if(iv)clearInterval(iv);
+  iv=setInterval(()=>{
+    if(!G.running||G.paused)return;
+    const p=G.active;
+    if(!p||G.out[p])return;
+    G.time[p]=Math.max(0,G.time[p]-0.1);
+    if(G.time[p]<=0){eliminate(p);return;}
+    // Fast path: solo il timer del giocatore attivo
+    const tmEl=document.getElementById('tm'+p);
+    if(tmEl)tmEl.textContent=fmt(G.time[p]);
+    // Aggiorna classe solo se attraversa soglia pericolo (≤60s)
+    const z=document.getElementById('z'+p);
+    const cl=zClass(p);
+    if(z.className!==cl)z.className=cl;
+  },100);
+}
+
+// ── Tap ──────────────────────────────────────
+function tap(p){
+  if(!G.ccw.includes(p))return;
+  if(G.out[p]||G.winner)return;
+  if(_cdmgOpen)return;
+  document.getElementById('hint').style.display='none';
+  if(G.bMode&&G.bNeeded.has(p)){
+    G.bNeeded.delete(p);
+    if(G.bNeeded.size===0){
+      G.bMode=false;
+      G.active=G.bAttacker;
+      G.bAttacker=0;
+    } else {
+      const nextB=nextBlocker(p);
+      if(nextB)G.active=nextB;
+    }
+    render();return;
+  }
+  if(G.active===0){
+    G.active=p;G.running=true;G.paused=false;
+    startTick();render();return;
+  }
+  if(G.active===p&&!G.paused&&!G.bMode){
+    const next=nextAlive(p);
+    if(next)G.active=next;
+    render();
+  }
+}
+
+// ── Life ─────────────────────────────────────
+function lc(p,d){
+  G.life[p]=Math.max(0,G.life[p]+d);
+  if(G.life[p]===0)eliminate(p);
+  render();
+}
+
+let _lpTimer=null,_lpIv=null;
+function initLBtns(){
+  document.querySelectorAll('.lbtn').forEach(btn=>{
+    const p=+btn.dataset.p,d=+btn.dataset.d;
+    btn.addEventListener('pointerdown',e=>{
+      e.stopPropagation();
+      e.preventDefault();
+      lc(p,d);
+      _lpTimer=setTimeout(()=>{
+        _lpIv=setInterval(()=>lc(p,d),100);
+      },400);
+    });
+    const stop=e=>{
+      e.stopPropagation();
+      e.preventDefault();
+      clearTimeout(_lpTimer);_lpTimer=null;clearInterval(_lpIv);_lpIv=null;
+    };
+    btn.addEventListener('pointerup',stop);
+    btn.addEventListener('pointercancel',stop);
+    btn.addEventListener('pointerleave',()=>{clearTimeout(_lpTimer);_lpTimer=null;clearInterval(_lpIv);_lpIv=null;});
+    btn.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();});
+  });
+}
+initLBtns();
+
+// ── Pause ────────────────────────────────────
+function doPause(){
+  if(G.active===0)return;
+  G.paused=!G.paused;
+  if(!G.paused&&!iv)startTick();
+  closeDim();render();
+}
+
+// ── Time preset ──────────────────────────────
+function setTime(s,btn){
+  document.querySelectorAll('.pre').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  G.init=s;doReset(true);
+}
+
+// ── Reset ────────────────────────────────────
+function doReset(keepMenu){
+  if(iv){clearInterval(iv);iv=null;}
+  G.time={1:G.init,2:G.init,3:G.init,4:G.init};
+  G.life={1:20,2:20,3:20,4:20};
+  G.cmdDmg={1:{2:0,3:0,4:0},2:{1:0,3:0,4:0},3:{1:0,2:0,4:0},4:{1:0,2:0,3:0}};
+  G.active=0;G.running=false;G.paused=false;
+  G.out={};G.winner=0;G.bMode=false;G.bNeeded=new Set();G.bAttacker=0;
+  closeCdmg();
+  document.getElementById('hint').style.display='flex';
+  if(!keepMenu)closeDim();
+  render();
+}
+
+function resetScores(){
+  G.wins={1:0,2:0,3:0,4:0};
+  render();
+}
+
+// ── Menu ─────────────────────────────────────
+function openMenu(){
+  document.getElementById('dim').classList.add('on');
+  document.getElementById('menu').classList.add('on');
+  buildScoreRow();buildPlayerRows();
+  document.getElementById('pico').textContent=G.paused?'▶':'⏸';
+  document.getElementById('ptxt').textContent=G.paused?'Riprendi':'Pausa';
+  document.getElementById('pbtn').style.display=G.active===0?'none':'flex';
+}
+
+function closeDim(){
+  ['dim','menu','bmodal','nmodal'].forEach(id=>{
+    document.getElementById(id).classList.remove('on');
+  });
+  document.getElementById('menu').style.display='';
+}
+
+// ── Blockers ─────────────────────────────────
+function openBlockers(ap,e){
+  e.stopPropagation();
+  bmSel=new Set();
+  const list=document.getElementById('bm-list');
+  list.innerHTML='';
+  G.ccw.forEach(p=>{
+    if(p===ap||G.out[p])return;
+    const btn=document.createElement('button');
+    btn.className='bm-p';btn.textContent=G.names[p];
+    btn.onclick=()=>{
+      if(bmSel.has(p)){bmSel.delete(p);btn.classList.remove('sel');}
+      else{bmSel.add(p);btn.classList.add('sel');}
+    };
+    list.appendChild(btn);
+  });
+  document.getElementById('dim').classList.add('on');
+  document.getElementById('bmodal').classList.add('on');
+}
+
+function confirmBlockers(){
+  if(bmSel.size===0){cancelBlockers();return;}
+  G.bAttacker=G.active;
+  G.bMode=true;G.bNeeded=new Set(bmSel);
+  const firstB=nextBlocker(G.bAttacker);
+  if(firstB)G.active=firstB;
+  document.getElementById('bmodal').classList.remove('on');
+  document.getElementById('dim').classList.remove('on');
+  render();
+}
+
+function cancelBlockers(){
+  document.getElementById('bmodal').classList.remove('on');
+  document.getElementById('dim').classList.remove('on');
+}
+
+// ── Name edit ────────────────────────────────
+function openNameEdit(p,e){
+  if(e)e.stopPropagation();
+  editP=p;
+  const inp=document.getElementById('name-input');
+  inp.value=G.names[p];
+  document.getElementById('dim').classList.add('on');
+  document.getElementById('nmodal').classList.add('on');
+  setTimeout(()=>inp.focus(),120);
+}
+
+function confirmName(){
+  const v=document.getElementById('name-input').value.trim();
+  if(v)G.names[editP]=v;
+  document.getElementById('nmodal').classList.remove('on');
+  document.getElementById('dim').classList.remove('on');
+  render();
+}
+
+function cancelName(){
+  document.getElementById('nmodal').classList.remove('on');
+  document.getElementById('dim').classList.remove('on');
+}
+
+document.getElementById('name-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter')confirmName();
+});
+
+// ── Commander damage ──────────────────────────
+function closeCdmg(){
+  [1,2,3,4].forEach(q=>{
+    const el=document.getElementById('cdmg'+q);
+    if(el)el.classList.remove('on');
+  });
+  document.getElementById('cdmg-dim').classList.remove('on');
+  _cdmgOpen=0;
+}
+
+function buildCdmgPanel(victim){
+  const panel=document.getElementById('cdmg'+victim);
+  panel.innerHTML='';
+  const hdr=document.createElement('div');
+  hdr.className='cdmg-hdr';hdr.textContent='⚔ CMD DMG';
+  panel.appendChild(hdr);
+  const closeBtn=document.createElement('button');
+  closeBtn.className='cdmg-close';closeBtn.textContent='✕ Chiudi';
+  closeBtn.addEventListener('click',e=>{e.stopPropagation();closeCdmg();});
+  panel.appendChild(closeBtn);
+  G.ccw.forEach(atk=>{
+    if(atk===victim||G.out[atk])return;
+    const dmg=G.cmdDmg[victim][atk]||0;
+    const row=document.createElement('div');row.className='cdmg-row';
+    const nm=document.createElement('div');nm.className='cdmg-name';
+    nm.textContent=G.names[atk];
+    const minus=document.createElement('button');minus.className='cdmg-btn';minus.textContent='−';
+    const val=document.createElement('div');
+    val.className='cdmg-val'+(dmg>=15?' warn':'');
+    val.textContent=dmg;
+    const plus=document.createElement('button');plus.className='cdmg-btn';plus.textContent='+';
+    function changeDmg(d){
+      G.cmdDmg[victim][atk]=Math.max(0,(G.cmdDmg[victim][atk]||0)+d);
+      const v=G.cmdDmg[victim][atk];
+      val.textContent=v;
+      val.className='cdmg-val'+(v>=15?' warn':'');
+      if(v>=21)eliminate(victim);
+    }
+    function mkLp(btn,d){
+      let lt=null,li=null;
+      btn.addEventListener('pointerdown',e=>{
+        e.stopPropagation();
+        changeDmg(d);
+        lt=setTimeout(()=>{li=setInterval(()=>changeDmg(d),100);},400);
+      });
+      const st=()=>{clearTimeout(lt);lt=null;clearInterval(li);li=null;};
+      btn.addEventListener('pointerup',st);
+      btn.addEventListener('pointercancel',st);
+      btn.addEventListener('pointerleave',st);
+    }
+    mkLp(minus,-1);mkLp(plus,1);
+    row.appendChild(nm);row.appendChild(minus);row.appendChild(val);row.appendChild(plus);
+    panel.appendChild(row);
+  });
+}
+
+function openCmdDmg(p){
+  if(G.out[p]||G.winner)return;
+  closeCdmg();
+  buildCdmgPanel(p);
+  document.getElementById('cdmg'+p).classList.add('on');
+  document.getElementById('cdmg-dim').classList.add('on');
+  _cdmgOpen=p;
+}
+
+// ── Swipe → commander damage ─────────────────
+function initSwipes(){
+  [1,2,3,4].forEach(p=>{
+    const zone=document.getElementById('z'+p);
+    let x0,y0,x1,y1,tracking=false;
+    zone.addEventListener('touchstart',e=>{
+      if(e.target.closest('.lbtn,.blocker-btn,.p-name,.cdmg-panel'))return;
+      x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+      x1=x0;y1=y0;tracking=true;
+    },{passive:true});
+    zone.addEventListener('touchmove',e=>{
+      if(!tracking)return;
+      x1=e.touches[0].clientX;y1=e.touches[0].clientY;
+    },{passive:true});
+    zone.addEventListener('touchend',e=>{
+      if(!tracking)return;
+      tracking=false;
+      const adx=Math.abs(x1-x0),ady=Math.abs(y1-y0);
+      if(Math.max(adx,ady)>40&&!_cdmgOpen){
+        e.preventDefault();
+        openCmdDmg(p);
+      }
+    });
+  });
+}
+initSwipes();
+
+// ── Wake lock ────────────────────────────────
+(async()=>{
+  if('wakeLock' in navigator){
+    try{await navigator.wakeLock.request('screen');}catch(_){}
+  }
+})();
+</script>
+</body>
+</html>
