@@ -214,7 +214,7 @@ html,body{
 /* ── Life ── */
 .p-life{
   font-family:Georgia,serif;
-  font-size:min(42px,10.5dvw);font-weight:700;
+  font-size:min(100px,25dvw);font-weight:700;
   color:var(--c-glow,#fff4c5);
   line-height:1;transition:color 0.15s;
   min-width:2ch;text-align:center;
@@ -321,6 +321,32 @@ html,body{
 .blocker-btn:active{opacity:0.7;}
 .zone.active .blocker-btn{display:flex;}
 .zone.waiting .blocker-btn{display:none;}
+
+/* ── Pass turn button ── */
+.pass-btn{
+  font-family:Georgia,serif;
+  font-size:min(12px,3dvw);font-weight:700;
+  letter-spacing:0.16em;
+  min-height:min(42px,10.5dvw);
+  width:auto;max-width:min(200px,50dvh);
+  padding:0 min(16px,4dvw);
+  border-radius:10px;
+  border:1.5px solid rgba(245,184,0,0.55);
+  background:linear-gradient(180deg,rgba(55,38,8,0.92),rgba(18,12,3,0.92));
+  color:var(--amber);
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  text-transform:uppercase;
+  white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+  box-shadow:inset 0 1px 0 rgba(245,184,0,0.22),0 0 12px rgba(245,184,0,0.14);
+  flex-shrink:0;
+  margin-top:auto;
+}
+.pass-btn:active{opacity:0.7;}
+.zone.active .pass-btn{display:flex;}
+.zone.active.pending .pass-btn{display:none;}
 
 /* ── Banners ── */
 .out-banner,.shield-banner{
@@ -676,6 +702,29 @@ html,body{
   box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
 }
 .cdmg-close:active{background:rgba(255,255,255,0.08);color:var(--text);}
+
+/* ── Commander damage delta popup ── */
+#cdmg-delta-popup{
+  position:fixed;top:calc(50% - 216px);left:50%;
+  transform:translateX(-50%);
+  background:rgba(6,3,10,0.93);
+  border:1px solid rgba(212,179,102,0.32);
+  border-radius:22px;padding:4px 18px;
+  font-family:Georgia,serif;font-size:22px;font-weight:700;
+  color:var(--red);z-index:502;
+  display:none;pointer-events:none;
+  text-align:center;min-width:64px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.5);
+}
+#cdmg-delta-popup.on{display:block;}
+
+/* ── History modal ── */
+.hm-list{display:flex;flex-direction:column;gap:8px;max-height:52dvh;overflow-y:auto;}
+.hm-empty{font-family:Georgia,serif;font-size:11px;color:var(--muted);text-align:center;padding:18px 0;letter-spacing:0.12em;}
+.hm-item{padding:9px 10px;border-radius:10px;border:1px solid rgba(212,179,102,0.18);background:rgba(0,0,0,0.25);display:flex;flex-direction:column;gap:3px;}
+.hm-winner{font-family:Georgia,serif;font-size:13px;font-weight:700;color:var(--gold-bright);letter-spacing:0.1em;}
+.hm-meta{font-family:Georgia,serif;font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;}
+.hm-life{font-family:Georgia,serif;font-size:9px;color:rgba(246,231,193,0.5);letter-spacing:0.06em;}
 </style>
 </head>
 <body>
@@ -704,7 +753,7 @@ html,body{
 
 <!-- Corner SVG template (reused per zone) -->
 <!-- G4: top-left +90° -->
-<div class="zone" id="z4" onclick="tap(4)">
+<div class="zone" id="z4" onclick="zoneTap(event,4)">
   <div class="zone-bg"></div>
   <div class="zone-glow"></div>
   <div class="zone-frame"></div>
@@ -717,13 +766,10 @@ html,body{
     <div class="p-name" id="name4" onclick="openNameEdit(4,event)">G4</div>
     <div class="p-timer" id="tm4">25:00</div>
     <div class="p-life" id="lf4">20</div>
-    <div class="life-row">
-      <button class="lbtn" data-p="4" data-d="-1">−</button>
-      <button class="lbtn" data-p="4" data-d="1">+</button>
-    </div>
     <div class="pip"></div>
     <div class="p-wins" id="wn4"></div>
     <button class="blocker-btn" onclick="openBlockers(4,event)">⚔ Bloccanti</button>
+    <button class="pass-btn" onclick="passTurn(4,event)">↷ Passa turno</button>
   </div>
   <div class="out-banner">ELIMINATO</div>
   <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
@@ -731,7 +777,7 @@ html,body{
 </div>
 
 <!-- G3: top-right -90° -->
-<div class="zone" id="z3" onclick="tap(3)">
+<div class="zone" id="z3" onclick="zoneTap(event,3)">
   <div class="zone-bg"></div>
   <div class="zone-glow"></div>
   <div class="zone-frame"></div>
@@ -744,13 +790,10 @@ html,body{
     <div class="p-name" id="name3" onclick="openNameEdit(3,event)">G3</div>
     <div class="p-timer" id="tm3">25:00</div>
     <div class="p-life" id="lf3">20</div>
-    <div class="life-row">
-      <button class="lbtn" data-p="3" data-d="-1">−</button>
-      <button class="lbtn" data-p="3" data-d="1">+</button>
-    </div>
     <div class="pip"></div>
     <div class="p-wins" id="wn3"></div>
     <button class="blocker-btn" onclick="openBlockers(3,event)">⚔ Bloccanti</button>
+    <button class="pass-btn" onclick="passTurn(3,event)">↷ Passa turno</button>
   </div>
   <div class="out-banner">ELIMINATO</div>
   <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
@@ -758,7 +801,7 @@ html,body{
 </div>
 
 <!-- G1: bottom-left +90° -->
-<div class="zone" id="z1" onclick="tap(1)">
+<div class="zone" id="z1" onclick="zoneTap(event,1)">
   <div class="zone-bg"></div>
   <div class="zone-glow"></div>
   <div class="zone-frame"></div>
@@ -771,13 +814,10 @@ html,body{
     <div class="p-name" id="name1" onclick="openNameEdit(1,event)">G1</div>
     <div class="p-timer" id="tm1">25:00</div>
     <div class="p-life" id="lf1">20</div>
-    <div class="life-row">
-      <button class="lbtn" data-p="1" data-d="-1">−</button>
-      <button class="lbtn" data-p="1" data-d="1">+</button>
-    </div>
     <div class="pip"></div>
     <div class="p-wins" id="wn1"></div>
     <button class="blocker-btn" onclick="openBlockers(1,event)">⚔ Bloccanti</button>
+    <button class="pass-btn" onclick="passTurn(1,event)">↷ Passa turno</button>
   </div>
   <div class="out-banner">ELIMINATO</div>
   <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
@@ -785,7 +825,7 @@ html,body{
 </div>
 
 <!-- G2: bottom-right -90° -->
-<div class="zone" id="z2" onclick="tap(2)">
+<div class="zone" id="z2" onclick="zoneTap(event,2)">
   <div class="zone-bg"></div>
   <div class="zone-glow"></div>
   <div class="zone-frame"></div>
@@ -798,13 +838,10 @@ html,body{
     <div class="p-name" id="name2" onclick="openNameEdit(2,event)">G2</div>
     <div class="p-timer" id="tm2">25:00</div>
     <div class="p-life" id="lf2">20</div>
-    <div class="life-row">
-      <button class="lbtn" data-p="2" data-d="-1">−</button>
-      <button class="lbtn" data-p="2" data-d="1">+</button>
-    </div>
     <div class="pip"></div>
     <div class="p-wins" id="wn2"></div>
     <button class="blocker-btn" onclick="openBlockers(2,event)">⚔ Bloccanti</button>
+    <button class="pass-btn" onclick="passTurn(2,event)">↷ Passa turno</button>
   </div>
   <div class="out-banner">ELIMINATO</div>
   <div class="shield-banner">⚔ TOCCA PER BLOCCARE</div>
@@ -822,6 +859,7 @@ html,body{
 <!-- Dim -->
 <div id="dim" onclick="closeDim()"></div>
 <div id="cdmg-dim"></div>
+<div id="cdmg-delta-popup"></div>
 <!-- Commander damage panels (figli diretti di #app, fuori dalle zone con clip-path) -->
 <div class="cdmg-panel" id="cdmg1"></div>
 <div class="cdmg-panel" id="cdmg2"></div>
@@ -838,7 +876,7 @@ html,body{
   <div class="sec-label">Punti vita iniziali</div>
   <div class="presets">
     <button class="pre pre-life sel" onclick="setLife(20,this)">20</button>
-    <button class="pre pre-life"     onclick="setLife(30,this)">30</button>
+    <button class="pre pre-life"     onclick="setLife(25,this)">25</button>
     <button class="pre pre-life"     onclick="setLife(40,this)">40 ⚔</button>
   </div>
 
@@ -865,6 +903,7 @@ html,body{
   </button>
   <button class="mbtn danger" onclick="doReset()">↺ &nbsp;Nuova partita</button>
   <button class="mbtn dim"    onclick="showSetup()">◫ &nbsp;Cambia giocatori</button>
+  <button class="mbtn dim"    onclick="openHistory()">📜 &nbsp;Storico partite</button>
   <button class="mbtn dim"    onclick="closeDim()">✕ &nbsp;Chiudi</button>
 </div>
 
@@ -876,6 +915,16 @@ html,body{
   <div class="modal-actions">
     <button class="btn-cancel" onclick="cancelBlockers()">Annulla</button>
     <button class="btn-blue"   onclick="confirmBlockers()">Conferma</button>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div id="hmodal" class="modal" style="width:min(320px,92vw);max-height:85dvh;overflow-y:auto;">
+  <div class="modal-title">📜 Storico Partite</div>
+  <div class="hm-list" id="hm-list"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="clearHistory()">🗑 Cancella</button>
+    <button class="btn-ok"     onclick="closeHistory()">Chiudi</button>
   </div>
 </div>
 
@@ -914,11 +963,11 @@ let G={
   col:{1:0,2:0,3:0,4:0},
   wins:{1:0,2:0,3:0,4:0},
   cmdDmg:{1:{2:0,3:0,4:0},2:{1:0,3:0,4:0},3:{1:0,2:0,4:0},4:{1:0,2:0,3:0}},
-  active:0,running:false,paused:false,
+  active:0,running:false,paused:false,pendingStart:false,
   out:{},winner:0,
   bMode:false,bNeeded:new Set(),bAttacker:0
 };
-let iv=null,bmSel=new Set(),editP=0,_cdmgOpen=0;
+let iv=null,bmSel=new Set(),editP=0,_cdmgOpen=0,_cdmgSessionDelta=0,_matchStartTime=0;
 
 const fmt=s=>{s=Math.max(0,Math.round(s));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
 
@@ -940,6 +989,14 @@ function nextBlocker(from){
   return null;
 }
 
+// ── Default life preset ──────────────────────
+function setDefaultLife(l){
+  G.initLife=l;
+  document.querySelectorAll('.pre-life').forEach(b=>{
+    b.classList.toggle('sel',parseInt(b.textContent)===l);
+  });
+}
+
 // ── Setup ────────────────────────────────────
 function showSetup(){
   closeDim();
@@ -953,6 +1010,7 @@ function choosePlayerCount(n){
   G.playerCount=n;
   setCCW(n);
   G.wins={1:0,2:0,3:0,4:0};
+  setDefaultLife(n>=3?40:20);
   document.getElementById('app').className='players-'+n;
   const hints={
     2:'G1 in basso, G2 in alto.<br>Tocca la tua zona per iniziare.',
@@ -975,6 +1033,7 @@ function eliminate(p){
     G.winner=alive[0];G.wins[alive[0]]++;
     G.bMode=false;G.bAttacker=0;G.bNeeded=new Set();
     G.running=false;if(iv){clearInterval(iv);iv=null;}
+    saveMatchHistory();
     render();return;
   }
   if(G.bMode){
@@ -1006,7 +1065,7 @@ function zClass(p){
     return'zone';
   }
   const ia=G.active===p,id=G.time[p]<=60;
-  if(ia)return'zone active'+(id?' danger':'');
+  if(ia)return'zone active'+(id?' danger':'')+(G.pendingStart?' pending':'');
   if(id&&G.active!==0)return'zone danger';
   return'zone';
 }
@@ -1105,6 +1164,11 @@ function tap(p){
   if(G.out[p]||G.winner)return;
   if(_cdmgOpen)return;
   document.getElementById('hint').style.display='none';
+  if(G.pendingStart&&G.active===p){
+    G.running=true;G.paused=false;G.pendingStart=false;
+    if(!_matchStartTime)_matchStartTime=Date.now();
+    startTick();render();return;
+  }
   if(G.bMode&&G.bNeeded.has(p)){
     G.bNeeded.delete(p);
     if(G.bNeeded.size===0){
@@ -1119,6 +1183,7 @@ function tap(p){
   }
   if(G.active===0){
     G.active=p;G.running=true;G.paused=false;
+    if(!_matchStartTime)_matchStartTime=Date.now();
     startTick();render();return;
   }
   if(G.active===p&&!G.paused&&!G.bMode){
@@ -1160,6 +1225,60 @@ function initLBtns(){
 }
 initLBtns();
 
+// ── Zone life tap (sinistra=−1, destra=+1) ───
+let _lastTX=0,_lastTY=0;
+document.addEventListener('touchstart',e=>{
+  if(e.touches[0]){_lastTX=e.touches[0].clientX;_lastTY=e.touches[0].clientY;}
+},{passive:true,capture:true});
+function getZoneRotation(p){
+  const n=G.playerCount;
+  if(n===2)return p===1?0:180;
+  if(n===3&&p===3)return 180;
+  return(p===1||p===4)?90:-90;
+}
+function zoneTap(e,p){
+  if(!G.ccw.includes(p))return;
+  if(G.out[p]||G.winner)return;
+  if(_cdmgOpen)return;
+  document.getElementById('hint').style.display='none';
+  if(G.pendingStart&&G.active===p){
+    G.running=true;G.paused=false;G.pendingStart=false;
+    if(!_matchStartTime)_matchStartTime=Date.now();
+    startTick();render();return;
+  }
+  if(G.bMode&&G.bNeeded.has(p)){
+    G.bNeeded.delete(p);
+    if(G.bNeeded.size===0){G.bMode=false;G.active=G.bAttacker;G.bAttacker=0;}
+    else{const nextB=nextBlocker(p);if(nextB)G.active=nextB;}
+    render();return;
+  }
+  if(G.active===0){
+    G.active=p;G.running=true;G.paused=false;
+    if(!_matchStartTime)_matchStartTime=Date.now();
+    startTick();render();return;
+  }
+  const zone=document.getElementById('z'+p);
+  const rect=zone.getBoundingClientRect();
+  const cx=e.clientX!==0?e.clientX:_lastTX;
+  const cy=e.clientY!==0?e.clientY:_lastTY;
+  const rot=getZoneRotation(p);
+  let isRight;
+  if(rot===90)isRight=(cy-rect.top)>rect.height/2;
+  else if(rot===-90)isRight=(cy-rect.top)<rect.height/2;
+  else if(rot===0)isRight=(cx-rect.left)>rect.width/2;
+  else isRight=(cx-rect.left)<rect.width/2;
+  lc(p,isRight?1:-1);
+}
+
+// ── Pass turn ────────────────────────────────
+function passTurn(p,e){
+  e.stopPropagation();
+  if(G.pendingStart||G.active!==p||G.paused||G.bMode)return;
+  const next=nextAlive(p);
+  if(next)G.active=next;
+  render();
+}
+
 // ── Pause ────────────────────────────────────
 function doPause(){
   if(G.active===0)return;
@@ -1192,8 +1311,9 @@ function doReset(keepMenu){
   G.time={1:G.init,2:G.init,3:G.init,4:G.init};
   const l=G.initLife;G.life={1:l,2:l,3:l,4:l};
   G.cmdDmg={1:{2:0,3:0,4:0},2:{1:0,3:0,4:0},3:{1:0,2:0,4:0},4:{1:0,2:0,3:0}};
-  G.active=0;G.running=false;G.paused=false;
+  G.active=0;G.running=false;G.paused=false;G.pendingStart=false;
   G.out={};G.winner=0;G.bMode=false;G.bNeeded=new Set();G.bAttacker=0;
+  _matchStartTime=0;
   closeCdmg();
   document.getElementById('hint').style.display='flex';
   if(!keepMenu)closeDim();
@@ -1211,9 +1331,10 @@ function randomStart(){
   const alive=G.ccw.filter(q=>!G.out[q]);
   if(alive.length===0)return;
   G.active=alive[Math.floor(Math.random()*alive.length)];
-  G.running=true;G.paused=false;
+  G.running=false;G.paused=false;G.pendingStart=true;
+  if(!_matchStartTime)_matchStartTime=Date.now();
   document.getElementById('hint').style.display='none';
-  startTick();closeDim();render();
+  closeDim();render();
 }
 
 // ── Menu ─────────────────────────────────────
@@ -1228,7 +1349,7 @@ function openMenu(){
 }
 
 function closeDim(){
-  ['dim','menu','bmodal','nmodal'].forEach(id=>{
+  ['dim','menu','bmodal','nmodal','hmodal'].forEach(id=>{
     document.getElementById(id).classList.remove('on');
   });
   document.getElementById('menu').style.display='';
@@ -1305,7 +1426,17 @@ function closeCdmg(){
     if(el)el.classList.remove('on');
   });
   document.getElementById('cdmg-dim').classList.remove('on');
+  const popup=document.getElementById('cdmg-delta-popup');
+  if(popup)popup.classList.remove('on');
   _cdmgOpen=0;
+}
+
+function updateDeltaPopup(){
+  const el=document.getElementById('cdmg-delta-popup');
+  if(!el)return;
+  const d=_cdmgSessionDelta;
+  el.textContent=d>0?'+'+d:String(d);
+  el.style.color=d<0?'var(--red)':d>0?'#7bd47b':'var(--muted)';
 }
 
 function buildCdmgPanel(victim){
@@ -1330,11 +1461,20 @@ function buildCdmgPanel(victim){
     val.textContent=dmg;
     const plus=document.createElement('button');plus.className='cdmg-btn';plus.textContent='+';
     function changeDmg(d){
-      G.cmdDmg[victim][atk]=Math.max(0,(G.cmdDmg[victim][atk]||0)+d);
-      const v=G.cmdDmg[victim][atk];
-      val.textContent=v;
-      val.className='cdmg-val'+(v>=15?' warn':'');
-      if(v>=21)eliminate(victim);
+      const prev=G.cmdDmg[victim][atk]||0;
+      const next=Math.max(0,prev+d);
+      const actual=next-prev;
+      G.cmdDmg[victim][atk]=next;
+      if(actual!==0){
+        G.life[victim]=Math.max(0,G.life[victim]-actual);
+        _cdmgSessionDelta-=actual;
+        const lfEl=document.getElementById('lf'+victim);
+        if(lfEl)lfEl.textContent=G.life[victim];
+        updateDeltaPopup();
+      }
+      val.textContent=next;
+      val.className='cdmg-val'+(next>=15?' warn':'');
+      if(next>=21||G.life[victim]<=0)eliminate(victim);
     }
     function mkLp(btn,d){
       let lt=null,li=null;
@@ -1357,7 +1497,10 @@ function buildCdmgPanel(victim){
 function openCmdDmg(p){
   if(G.out[p]||G.winner)return;
   closeCdmg();
+  _cdmgSessionDelta=0;
   buildCdmgPanel(p);
+  const popup=document.getElementById('cdmg-delta-popup');
+  if(popup){popup.textContent='0';popup.style.color='var(--muted)';popup.classList.add('on');}
   document.getElementById('cdmg'+p).classList.add('on');
   document.getElementById('cdmg-dim').classList.add('on');
   _cdmgOpen=p;
@@ -1389,6 +1532,82 @@ function initSwipes(){
   });
 }
 initSwipes();
+
+// ── Match history ─────────────────────────────
+function saveMatchHistory(){
+  if(!G.winner)return;
+  const rec={
+    date:new Date().toISOString(),
+    winner:G.names[G.winner],
+    playerCount:G.playerCount,
+    players:Object.assign({},G.names),
+    ccw:[...G.ccw],
+    finalLife:Object.assign({},G.life),
+    cmdDmg:JSON.parse(JSON.stringify(G.cmdDmg)),
+    duration:_matchStartTime>0?Math.floor((Date.now()-_matchStartTime)/1000):0
+  };
+  let hist=JSON.parse(localStorage.getItem('mtg_history')||'[]');
+  hist.unshift(rec);
+  if(hist.length>20)hist=hist.slice(0,20);
+  localStorage.setItem('mtg_history',JSON.stringify(hist));
+}
+
+function fmtDur(s){
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  if(h>0)return h+'h '+m+'m';
+  if(m>0)return m+'m '+sec+'s';
+  return sec+'s';
+}
+
+function fmtDate(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})+
+    ' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+
+function buildHistoryList(){
+  const c=document.getElementById('hm-list');c.innerHTML='';
+  const hist=JSON.parse(localStorage.getItem('mtg_history')||'[]');
+  if(hist.length===0){
+    const empty=document.createElement('div');empty.className='hm-empty';
+    empty.textContent='Nessuna partita salvata.';c.appendChild(empty);return;
+  }
+  hist.forEach(rec=>{
+    const item=document.createElement('div');item.className='hm-item';
+    const winner=document.createElement('div');winner.className='hm-winner';
+    winner.textContent='🏆 '+rec.winner;
+    const meta=document.createElement('div');meta.className='hm-meta';
+    meta.textContent=fmtDate(rec.date)+' · '+(rec.playerCount||'?')+'P · '+fmtDur(rec.duration||0);
+    const life=document.createElement('div');life.className='hm-life';
+    const parts=[];
+    const players=rec.ccw||[1,2,3,4].slice(0,rec.playerCount||4);
+    players.forEach(p=>{
+      const name=rec.players&&rec.players[p]?rec.players[p]:'G'+p;
+      const lf=rec.finalLife&&rec.finalLife[p]!=null?rec.finalLife[p]:'?';
+      parts.push(name+': '+lf+' PV');
+    });
+    life.textContent=parts.join(' · ');
+    item.appendChild(winner);item.appendChild(meta);item.appendChild(life);
+    c.appendChild(item);
+  });
+}
+
+function openHistory(){
+  closeDim();
+  buildHistoryList();
+  document.getElementById('dim').classList.add('on');
+  document.getElementById('hmodal').classList.add('on');
+}
+
+function closeHistory(){
+  document.getElementById('hmodal').classList.remove('on');
+  document.getElementById('dim').classList.remove('on');
+}
+
+function clearHistory(){
+  localStorage.removeItem('mtg_history');
+  buildHistoryList();
+}
 
 // ── Wake lock ────────────────────────────────
 (async()=>{
