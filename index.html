@@ -209,7 +209,7 @@ html,body{
 /* ── Life ── */
 .p-life{
   font-family:Georgia,serif;
-  font-size:min(68px,18dvw);font-weight:700;
+  font-size:min(48px,12.5dvw);font-weight:700;
   color:var(--c-glow,#fff4c5);
   line-height:1;transition:color 0.15s;
   min-width:2ch;text-align:center;
@@ -230,7 +230,7 @@ html,body{
 /* ── Life buttons ── */
 .life-row{display:flex;align-items:center;gap:min(12px,3dvw);flex-shrink:1;min-height:0;}
 .lbtn{
-  width:min(48px,12dvw);height:min(48px,12dvw);
+  width:min(42px,10.5dvw);height:min(42px,10.5dvw);
   border-radius:50%;
   border:1px solid var(--c-frame-out,rgba(125,106,58,0.8));
   background:
@@ -238,7 +238,7 @@ html,body{
     linear-gradient(180deg,var(--c-mid,#3d3320),var(--c-edge,#0a0805));
   color:var(--c-flourish,#f3e0a0);
   font-family:Georgia,serif;
-  font-size:min(26px,6.5dvw);font-weight:700;
+  font-size:min(22px,5.5dvw);font-weight:700;
   line-height:1;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;
@@ -294,19 +294,25 @@ html,body{
 /* ── Blocker btn ── */
 .blocker-btn{
   font-family:Georgia,serif;
-  font-size:min(8px,2dvw);letter-spacing:0.14em;
-  padding:2px min(8px,2dvw);
-  border-radius:6px;
-  border:1px solid rgba(212,179,102,0.3);
-  background:linear-gradient(180deg,rgba(42,30,16,0.7),rgba(14,10,6,0.7));
-  color:rgba(243,224,160,0.55);
-  cursor:pointer;font-family:Georgia,serif;
-  display:none;white-space:nowrap;
+  font-size:min(10px,2.5dvw);letter-spacing:0.14em;
+  min-height:min(44px,11dvw);
+  min-width:min(120px,30dvh);
+  padding:0 min(16px,4dvw);
+  border-radius:8px;
+  border:1px solid rgba(212,179,102,0.38);
+  background:linear-gradient(180deg,rgba(42,30,16,0.8),rgba(14,10,6,0.8));
+  color:rgba(243,224,160,0.75);
+  cursor:pointer;
+  display:none;
+  align-items:center;justify-content:center;
+  white-space:nowrap;
   -webkit-tap-highlight-color:transparent;
   text-transform:uppercase;
-  box-shadow:inset 0 1px 0 rgba(241,217,144,0.1);
+  box-shadow:inset 0 1px 0 rgba(241,217,144,0.14);
+  flex-shrink:0;
 }
-.zone.active .blocker-btn{display:block;}
+.blocker-btn:active{opacity:0.7;}
+.zone.active .blocker-btn{display:flex;}
 .zone.waiting .blocker-btn{display:none;}
 
 /* ── Banners ── */
