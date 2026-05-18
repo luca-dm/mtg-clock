@@ -93,6 +93,7 @@ html,body{
   grid-template-columns:1fr 1fr;
   grid-template-rows:1fr 1fr;
   position:relative;
+  overflow:hidden;
 }
 #z4{grid-column:1;grid-row:1;}
 #z3{grid-column:2;grid-row:1;}
@@ -122,7 +123,9 @@ html,body{
 /* ── Zone ── */
 .zone{
   position:relative;
-  overflow:hidden;cursor:pointer;
+  overflow:hidden;
+  clip-path:inset(0);
+  cursor:pointer;
   -webkit-tap-highlight-color:transparent;
 }
 
@@ -300,7 +303,7 @@ html,body{
   font-family:Georgia,serif;
   font-size:min(10px,2.5dvw);letter-spacing:0.14em;
   min-height:min(44px,11dvw);
-  min-width:min(120px,30dvh);
+  width:auto;max-width:min(180px,45dvh);
   padding:0 min(16px,4dvw);
   border-radius:8px;
   border:1px solid rgba(212,179,102,0.38);
@@ -460,19 +463,29 @@ html,body{
 
 .mdivider{height:0.5px;background:rgba(212,179,102,0.14);}
 
-.prow{display:flex;align-items:center;gap:5px 7px;padding:3px 0;flex-wrap:wrap;}
+.prow{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  grid-template-rows:auto auto;
+  gap:5px 6px;padding:4px 0;
+}
 .prow-num{
+  grid-column:1;grid-row:1;
   font-size:10px;font-weight:600;color:var(--gold-bright);
-  font-family:Georgia,serif;min-width:14px;letter-spacing:0.08em;
-  flex-shrink:0;
+  font-family:Georgia,serif;letter-spacing:0.08em;
+  align-self:center;
 }
 .prow-name{
+  grid-column:2;grid-row:1;
   font-size:11px;color:var(--muted);font-family:Georgia,serif;
-  flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   cursor:pointer;padding:2px 4px;border-radius:4px;letter-spacing:0.08em;
 }
 .prow-name:active{background:rgba(255,255,255,0.06);}
-.cdots{display:flex;gap:7px;flex-shrink:0;width:100%;justify-content:center;padding:2px 0;}
+.cdots{
+  grid-column:1/span 2;grid-row:2;
+  display:flex;gap:7px;justify-content:center;padding:2px 0;
+}
 .cdot{
   width:24px;height:24px;border-radius:50%;cursor:pointer;
   border:1.5px solid rgba(0,0,0,0.6);
@@ -838,6 +851,7 @@ html,body{
   <div id="player-rows"></div>
 
   <div class="mdivider"></div>
+  <button class="mbtn" id="rbtn" onclick="randomStart()" style="display:none">🎲 &nbsp;Giocatore casuale</button>
   <button class="mbtn" id="pbtn" onclick="doPause()">
     <span id="pico">⏸</span><span id="ptxt">Pausa</span>
   </button>
@@ -869,10 +883,9 @@ html,body{
 
 </div><!-- #app -->
 <script>
-/* ── Mana theme palette (maps PAL index → CSS vars) ── */
+/* ── Mana theme palette (5 colori MTG: W U G B R) ── */
 const PAL=[
-  '#111110','#0b1525','#0b1e10','#160b28',
-  '#280b0b','#1e1400','#0b1e1e','#1c1818'
+  '#111110','#0b1525','#0b1e10','#160b28','#280b0b'
 ];
 const PAL_THEMES=[
   {mid:'#3d3320',deep:'#1a1410',edge:'#0a0805',glow:'#fff4c5',flourish:'#f3e0a0',frameOut:'#7d6a3a',frameIn:'#1a1410',glowFaint:'rgba(255,244,197,0.1)',flourishFaint:'rgba(243,224,160,0.2)',flourishBorder:'rgba(243,224,160,0.28)'},
@@ -880,9 +893,6 @@ const PAL_THEMES=[
   {mid:'#16321c',deep:'#0a1810',edge:'#040a06',glow:'#9eecaa',flourish:'#76b487',frameOut:'#3d6840',frameIn:'#0a1810',glowFaint:'rgba(158,236,170,0.1)',flourishFaint:'rgba(118,180,135,0.2)',flourishBorder:'rgba(118,180,135,0.28)'},
   {mid:'#2a1538',deep:'#100614',edge:'#050208',glow:'#d9a3ff',flourish:'#b388c8',frameOut:'#5a3c70',frameIn:'#100614',glowFaint:'rgba(217,163,255,0.1)',flourishFaint:'rgba(179,136,200,0.2)',flourishBorder:'rgba(179,136,200,0.28)'},
   {mid:'#3e160e',deep:'#1d0a07',edge:'#0a0403',glow:'#ffb380',flourish:'#e88656',frameOut:'#8a4626',frameIn:'#1d0a07',glowFaint:'rgba(255,179,128,0.1)',flourishFaint:'rgba(232,134,86,0.2)',flourishBorder:'rgba(232,134,86,0.28)'},
-  {mid:'#3d3320',deep:'#1a1410',edge:'#0a0805',glow:'#fff4c5',flourish:'#f3e0a0',frameOut:'#7d6a3a',frameIn:'#1a1410',glowFaint:'rgba(255,244,197,0.1)',flourishFaint:'rgba(243,224,160,0.2)',flourishBorder:'rgba(243,224,160,0.28)'},
-  {mid:'#163048',deep:'#0a1828',edge:'#040a16',glow:'#9ed2ff',flourish:'#7ab8e8',frameOut:'#3a6d96',frameIn:'#0a1828',glowFaint:'rgba(158,210,255,0.1)',flourishFaint:'rgba(122,184,232,0.2)',flourishBorder:'rgba(122,184,232,0.28)'},
-  {mid:'#2a1538',deep:'#100614',edge:'#050208',glow:'#d9a3ff',flourish:'#b388c8',frameOut:'#5a3c70',frameIn:'#100614',glowFaint:'rgba(217,163,255,0.1)',flourishFaint:'rgba(179,136,200,0.2)',flourishBorder:'rgba(179,136,200,0.28)'},
 ];
 
 let G={
@@ -1024,6 +1034,7 @@ function render(){
     document.getElementById('pico').textContent=p?'▶':'⏸';
     document.getElementById('ptxt').textContent=p?'Riprendi':'Pausa';
     document.getElementById('pbtn').style.display=G.active===0?'none':'flex';
+    document.getElementById('rbtn').style.display=G.active===0&&!G.winner?'flex':'none';
   }
 }
 
@@ -1174,6 +1185,17 @@ function resetScores(){
   render();
 }
 
+// ── Random start ─────────────────────────────
+function randomStart(){
+  if(G.active!==0||G.winner)return;
+  const alive=G.ccw.filter(q=>!G.out[q]);
+  if(alive.length===0)return;
+  G.active=alive[Math.floor(Math.random()*alive.length)];
+  G.running=true;G.paused=false;
+  document.getElementById('hint').style.display='none';
+  startTick();closeDim();render();
+}
+
 // ── Menu ─────────────────────────────────────
 function openMenu(){
   document.getElementById('dim').classList.add('on');
@@ -1182,6 +1204,7 @@ function openMenu(){
   document.getElementById('pico').textContent=G.paused?'▶':'⏸';
   document.getElementById('ptxt').textContent=G.paused?'Riprendi':'Pausa';
   document.getElementById('pbtn').style.display=G.active===0?'none':'flex';
+  document.getElementById('rbtn').style.display=G.active===0&&!G.winner?'flex':'none';
 }
 
 function closeDim(){
